@@ -19,10 +19,10 @@ const Filename = "luanti.toml"
 
 // Project is the top-level structure of a luanti.toml manifest.
 type Project struct {
-	Server   ServerConfig           `toml:"server"`
-	World    WorldConfig            `toml:"world"`
-	Paths    PathsConfig            `toml:"paths"`
-	Packages PackagesConfig         `toml:"packages"`
+	Server   ServerConfig   `toml:"server"`
+	World    WorldConfig    `toml:"world"`
+	Paths    PathsConfig    `toml:"paths"`
+	Packages PackagesConfig `toml:"packages"`
 	Config   map[string]any `toml:"config"`
 }
 
@@ -265,7 +265,7 @@ func AddPackage(p *Project, id, pkgType string) bool {
 // LoadCurrent loads luanti.toml from the current working directory.
 func LoadCurrent() (*Project, error) {
 	p, err := Load(Filename)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, ErrNotFound
 	}
 

@@ -15,9 +15,11 @@ import (
 	"strings"
 )
 
-const (
-	baseURL = "https://content.luanti.org"
+// BaseURL is the root of the ContentDB REST API.  Declared as a var so that
+// tests can redirect requests to a local httptest.Server.
+var BaseURL = "https://content.luanti.org"
 
+const (
 	// maxDecompressedSize caps zip extraction to 500 MB to prevent decompression bombs.
 	maxDecompressedSize = 500 * 1024 * 1024
 )
@@ -30,6 +32,13 @@ type Client struct {
 // New returns a Client with default settings.
 func New() *Client {
 	return &Client{http: &http.Client{}}
+}
+
+// NewWithClient returns a Client that uses the provided *http.Client.
+// Intended for testing so that callers can redirect requests to an
+// httptest.Server without changing the package-level BaseURL.
+func NewWithClient(c *http.Client) *Client {
+	return &Client{http: c}
 }
 
 // drainAndClose drains and closes an HTTP response body to allow connection reuse.
@@ -66,7 +75,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 		params.Set("limit", strconv.Itoa(limit))
 	}
 
-	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/?%s", baseURL, params.Encode()))
+	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/?%s", BaseURL, params.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +107,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 
 // GetPackage fetches metadata for a single package by author/name.
 func (c *Client) GetPackage(ctx context.Context, author, name string) (*Package, error) {
-	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/", baseURL, author, name))
+	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/", BaseURL, author, name))
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +131,7 @@ func (c *Client) GetPackage(ctx context.Context, author, name string) (*Package,
 
 // GetReleases returns the release list for a package.
 func (c *Client) GetReleases(ctx context.Context, author, name string) ([]Release, error) {
-	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/releases/", baseURL, author, name))
+	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/releases/", BaseURL, author, name))
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +152,7 @@ func (c *Client) GetReleases(ctx context.Context, author, name string) ([]Releas
 // Install downloads the latest release of author/name and unpacks it into destDir.
 // Returns the path to the extracted mod directory.
 func (c *Client) Install(ctx context.Context, author, name, destDir string) (string, error) {
-	downloadURL := fmt.Sprintf("%s/packages/%s/%s/download/", baseURL, author, name)
+	downloadURL := fmt.Sprintf("%s/packages/%s/%s/download/", BaseURL, author, name)
 
 	resp, err := c.doGet(ctx, downloadURL)
 	if err != nil {
@@ -179,7 +188,7 @@ func (c *Client) Install(ctx context.Context, author, name, destDir string) (str
 // GetDependencies returns the full transitive dependency graph for a package.
 // The map key is "author/name"; the value is that package's dependency list.
 func (c *Client) GetDependencies(ctx context.Context, author, name string) (DependenciesResponse, error) {
-	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/dependencies/", baseURL, author, name))
+	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/dependencies/", BaseURL, author, name))
 	if err != nil {
 		return nil, err
 	}
@@ -281,4 +290,3 @@ func stripTopDir(name string) string {
 
 	return after
 }
-

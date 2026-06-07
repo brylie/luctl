@@ -1,3 +1,7 @@
 [tools]
 gh = "latest"
 go = "1.26"
+
+[tasks."test:coverage"]
+description = "Run tests with coverage and print per-function summary"
+run = "go test ./... -coverprofile=coverage.out -covermode=atomic && go tool cover -func=coverage.out"
