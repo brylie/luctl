@@ -284,7 +284,7 @@ func SyncConfig(confPath string, config map[string]any) error {
 	clean := filepath.Clean(confPath)
 
 	data, err := os.ReadFile(clean)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("reading config file: %w", err)
 	}
 
