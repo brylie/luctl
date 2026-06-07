@@ -1,6 +1,8 @@
 [tools]
+claude = "latest"
 gh = "latest"
 go = "1.26"
+golangci-lint = "latest"
 
 [tasks."test:coverage"]
 description = "Run tests with coverage and print per-function summary"

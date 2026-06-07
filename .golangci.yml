@@ -85,7 +85,7 @@ linters:
     wrapcheck:
       # Cobra errors are already printed/descriptive; our own internal packages
       # wrap errors at the boundary — no need to double-wrap in cmd layer.
-      ignorePackageGlobs:
+      ignore-package-globs:
         - github.com/spf13/cobra
         - github.com/brylie/luctl/internal/*
 
@@ -117,7 +117,7 @@ linters:
       block-size: 3
 
     godot:
-      scope: comments
+      scope: toplevel
       period: true
 
     gosec:
@@ -125,11 +125,13 @@ linters:
         - G304 # file path from variable — intentional after path-traversal check
         - G306 # file permissions — 0o750 is intentional for server data dirs
 
+  exclusions:
+    rules:
+      # Command RunE closures are intentionally long (CLI output formatting).
+      - path: cmd/
+        linters: [funlen]
+        text: "Function.*RunE"
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    # Command RunE closures are intentionally long (CLI output formatting).
-    - path: cmd/
-      linters: [funlen]
-      text: "Function.*RunE"
