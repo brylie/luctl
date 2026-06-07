@@ -170,6 +170,53 @@ func TestCreateArchive_ExcludesAuxFiles(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// extractArchive — subdirectory handling
+// ---------------------------------------------------------------------------
+
+func TestExtractArchive_WithSubdir(t *testing.T) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+
+	dirHdr := &tar.Header{Name: "subdir/", Typeflag: tar.TypeDir, Mode: 0o750}
+	if err := tw.WriteHeader(dirHdr); err != nil {
+		t.Fatalf("WriteHeader dir: %v", err)
+	}
+
+	content := []byte("hello")
+	fileHdr := &tar.Header{Name: "subdir/file.txt", Typeflag: tar.TypeReg, Size: int64(len(content)), Mode: 0o600}
+	if err := tw.WriteHeader(fileHdr); err != nil {
+		t.Fatalf("WriteHeader file: %v", err)
+	}
+
+	if _, err := tw.Write(content); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	_ = tw.Close()
+	_ = gz.Close()
+
+	dst := t.TempDir()
+
+	if err := extractArchive(&buf, dst); err != nil {
+		t.Fatalf("extractArchive: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dst, "subdir")); err != nil {
+		t.Errorf("subdir not created: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dst, "subdir", "file.txt"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	if string(data) != "hello" {
+		t.Errorf("want hello, got %q", string(data))
+	}
+}
+
+// ---------------------------------------------------------------------------
 // extractArchive — security
 // ---------------------------------------------------------------------------
 
