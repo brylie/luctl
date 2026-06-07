@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/brylie/luctl/internal/contentdb"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +48,7 @@ func newPkgUpdateCmd() *cobra.Command {
 
 			fmt.Printf("Updating %s/%s ...\n", author, name)
 
-			client := contentdb.New()
+			client := newClient()
 
 			dest, err := client.Install(cmd.Context(), author, name, dir)
 			if err != nil {

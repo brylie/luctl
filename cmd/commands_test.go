@@ -442,12 +442,16 @@ func TestProjectStatusCmd_NoManifest(t *testing.T) {
 // pkg search  (uses HTTP via contentdb.BaseURL)
 // ---------------------------------------------------------------------------
 
-// withCmdBaseURL overrides contentdb.BaseURL for the duration of the test.
+// withCmdBaseURL overrides the cmd-package client factory for the duration of
+// the test so that commands point at a local httptest.Server instead of
+// the production ContentDB.
 func withCmdBaseURL(t *testing.T, url string) {
 	t.Helper()
-	orig := contentdb.BaseURL
-	contentdb.BaseURL = url
-	t.Cleanup(func() { contentdb.BaseURL = orig })
+	orig := newClient
+	newClient = func() *contentdb.Client {
+		return contentdb.NewWithClient(url, &http.Client{})
+	}
+	t.Cleanup(func() { newClient = orig })
 }
 
 func TestPkgSearchCmd(t *testing.T) {

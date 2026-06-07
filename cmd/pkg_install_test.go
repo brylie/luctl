@@ -566,11 +566,7 @@ func TestInstallRequiredDeps_NoDeps(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	orig := contentdb.BaseURL
-	contentdb.BaseURL = ts.URL
-	defer func() { contentdb.BaseURL = orig }()
-
-	client := contentdb.NewWithClient(ts.Client())
+	client := contentdb.NewWithClient(ts.URL, ts.Client())
 	pkg := &contentdb.Package{Author: "alice", Name: "mod1"}
 
 	// Should complete without error — no deps to install.
@@ -583,11 +579,7 @@ func TestInstallRequiredDeps_FetchError(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	orig := contentdb.BaseURL
-	contentdb.BaseURL = ts.URL
-	defer func() { contentdb.BaseURL = orig }()
-
-	client := contentdb.NewWithClient(ts.Client())
+	client := contentdb.NewWithClient(ts.URL, ts.Client())
 	pkg := &contentdb.Package{Author: "alice", Name: "mod1"}
 
 	// Fetch error should be reported as warning, not panic.
@@ -615,11 +607,7 @@ func TestInstallRequiredDeps_WithDep(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	orig := contentdb.BaseURL
-	contentdb.BaseURL = ts.URL
-	defer func() { contentdb.BaseURL = orig }()
-
-	client := contentdb.NewWithClient(ts.Client())
+	client := contentdb.NewWithClient(ts.URL, ts.Client())
 	pkg := &contentdb.Package{Author: "alice", Name: "mod1"}
 
 	dir := t.TempDir()
@@ -642,7 +630,7 @@ func TestInstallDepsFromList_AlreadyInstalled(t *testing.T) {
 		t.Fatalf("Mkdir: %v", err)
 	}
 
-	client := contentdb.NewWithClient(&http.Client{})
+	client := contentdb.New()
 	// Should print "already installed" and skip — no network call needed.
 	installDepsFromList(newCmdWithContext(), client, []string{"alice/dep1"}, dir, nil, true, true)
 }
@@ -656,11 +644,7 @@ func TestInstallDepsFromList_InstallsDep(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	orig := contentdb.BaseURL
-	contentdb.BaseURL = ts.URL
-	defer func() { contentdb.BaseURL = orig }()
-
-	client := contentdb.NewWithClient(ts.Client())
+	client := contentdb.NewWithClient(ts.URL, ts.Client())
 	dir := t.TempDir()
 
 	installDepsFromList(newCmdWithContext(), client, []string{"alice/dep1"}, dir, nil, true, true)
@@ -671,7 +655,7 @@ func TestInstallDepsFromList_InstallsDep(t *testing.T) {
 }
 
 func TestInstallDepsFromList_InvalidID(t *testing.T) {
-	client := contentdb.NewWithClient(&http.Client{})
+	client := contentdb.New()
 	// Invalid ID (no slash) should be skipped, not panic.
 	installDepsFromList(newCmdWithContext(), client, []string{"noslash"}, t.TempDir(), nil, true, true)
 }
@@ -682,11 +666,7 @@ func TestInstallDepsFromList_InstallFails(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	orig := contentdb.BaseURL
-	contentdb.BaseURL = ts.URL
-	defer func() { contentdb.BaseURL = orig }()
-
-	client := contentdb.NewWithClient(ts.Client())
+	client := contentdb.NewWithClient(ts.URL, ts.Client())
 	// Install failure should print a warning, not error out.
 	installDepsFromList(newCmdWithContext(), client, []string{"alice/dep1"}, t.TempDir(), nil, true, true)
 }

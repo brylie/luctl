@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/brylie/luctl/internal/contentdb"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +17,7 @@ func newPkgSearchCmd() *cobra.Command {
 		Short: "Search ContentDB for packages.",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client := contentdb.New()
+			client := newClient()
 
 			packages, err := client.Search(cmd.Context(), args[0], searchType, searchLimit)
 			if err != nil {

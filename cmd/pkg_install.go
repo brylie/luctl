@@ -30,7 +30,7 @@ func newPkgInstallCmd() *cobra.Command {
 
 			proj, _ := project.LoadCurrent()
 			dir := resolveInstallDir(modsDir, pkgType, proj)
-			client := contentdb.New()
+			client := newClient()
 
 			pkg, err := client.GetPackage(cmd.Context(), author, name)
 			if err != nil {

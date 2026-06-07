@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/brylie/luctl/internal/contentdb"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +20,7 @@ func newPkgInfoCmd() *cobra.Command {
 			}
 
 			author, name := parts[0], parts[1]
-			client := contentdb.New()
+			client := newClient()
 
 			pkg, err := client.GetPackage(cmd.Context(), author, name)
 			if err != nil {

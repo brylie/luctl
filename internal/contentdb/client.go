@@ -15,31 +15,28 @@ import (
 	"strings"
 )
 
-// BaseURL is the root of the ContentDB REST API.  Declared as a var so that
-// tests can redirect requests to a local httptest.Server.
-var BaseURL = "https://content.luanti.org" //nolint:gochecknoglobals // var so tests can point at an httptest.Server
-
 const (
 	// maxDecompressedSize caps zip extraction to 500 MB to prevent decompression bombs.
 	maxDecompressedSize = 500 * 1024 * 1024
 	apiErrFmt           = "API error: %s"
+	productionBaseURL   = "https://content.luanti.org"
 )
 
 // Client is a minimal ContentDB API client.
 type Client struct {
-	http *http.Client
+	http    *http.Client
+	baseURL string
 }
 
-// New returns a Client with default settings.
+// New returns a Client pointed at the production ContentDB API.
 func New() *Client {
-	return &Client{http: &http.Client{}}
+	return &Client{http: &http.Client{}, baseURL: productionBaseURL}
 }
 
-// NewWithClient returns a Client that uses the provided *http.Client.
-// Intended for testing so that callers can redirect requests to an
-// httptest.Server without changing the package-level BaseURL.
-func NewWithClient(c *http.Client) *Client {
-	return &Client{http: c}
+// NewWithClient returns a Client that uses the provided base URL and
+// *http.Client.  Pass the httptest.Server URL and ts.Client() in tests.
+func NewWithClient(baseURL string, c *http.Client) *Client {
+	return &Client{http: c, baseURL: baseURL}
 }
 
 // drainAndClose drains and closes an HTTP response body to allow connection reuse.
@@ -76,7 +73,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 		params.Set("limit", strconv.Itoa(limit))
 	}
 
-	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/?%s", BaseURL, params.Encode()))
+	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/?%s", c.baseURL, params.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +105,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 
 // GetPackage fetches metadata for a single package by author/name.
 func (c *Client) GetPackage(ctx context.Context, author, name string) (*Package, error) {
-	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/", BaseURL, author, name))
+	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/", c.baseURL, author, name))
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +129,7 @@ func (c *Client) GetPackage(ctx context.Context, author, name string) (*Package,
 
 // GetReleases returns the release list for a package.
 func (c *Client) GetReleases(ctx context.Context, author, name string) ([]Release, error) {
-	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/releases/", BaseURL, author, name))
+	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/releases/", c.baseURL, author, name))
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +150,7 @@ func (c *Client) GetReleases(ctx context.Context, author, name string) ([]Releas
 // Install downloads the latest release of author/name and unpacks it into destDir.
 // Returns the path to the extracted mod directory.
 func (c *Client) Install(ctx context.Context, author, name, destDir string) (string, error) {
-	downloadURL := fmt.Sprintf("%s/packages/%s/%s/download/", BaseURL, author, name)
+	downloadURL := fmt.Sprintf("%s/packages/%s/%s/download/", c.baseURL, author, name)
 
 	resp, err := c.doGet(ctx, downloadURL)
 	if err != nil {
@@ -189,7 +186,7 @@ func (c *Client) Install(ctx context.Context, author, name, destDir string) (str
 // GetDependencies returns the full transitive dependency graph for a package.
 // The map key is "author/name"; the value is that package's dependency list.
 func (c *Client) GetDependencies(ctx context.Context, author, name string) (DependenciesResponse, error) {
-	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/dependencies/", BaseURL, author, name))
+	resp, err := c.doGet(ctx, fmt.Sprintf("%s/api/packages/%s/%s/dependencies/", c.baseURL, author, name))
 	if err != nil {
 		return nil, err
 	}

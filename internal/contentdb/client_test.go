@@ -45,24 +45,19 @@ func buildTestZip(t *testing.T, files map[string]string) []byte {
 	return buf.Bytes()
 }
 
-// withTestServer starts an httptest.Server, overrides BaseURL, and returns the
-// server. The caller is responsible for calling ts.Close() (via t.Cleanup).
+// withTestServer starts an httptest.Server and registers cleanup. The caller
+// must pass the returned server's URL to newTestClient.
 func withTestServer(t *testing.T, handler http.Handler) *httptest.Server {
 	t.Helper()
 	ts := httptest.NewServer(handler)
 	t.Cleanup(ts.Close)
 
-	orig := BaseURL
-	BaseURL = ts.URL
-	t.Cleanup(func() { BaseURL = orig })
-
 	return ts
 }
 
-// newTestClient creates a Client whose http.Client is pre-configured to trust
-// the test server's TLS (for plain HTTP servers this is just a default client).
+// newTestClient creates a Client pointed at ts and using ts's http.Client.
 func newTestClient(ts *httptest.Server) *Client {
-	return &Client{http: ts.Client()}
+	return NewWithClient(ts.URL, ts.Client())
 }
 
 // ---------------------------------------------------------------------------
@@ -396,6 +391,9 @@ func TestNew(t *testing.T) {
 	}
 	if c.http == nil {
 		t.Error("New() should initialize the http.Client field")
+	}
+	if c.baseURL != productionBaseURL {
+		t.Errorf("New() baseURL: want %q, got %q", productionBaseURL, c.baseURL)
 	}
 }
 

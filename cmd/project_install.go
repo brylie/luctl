@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/brylie/luctl/internal/contentdb"
 	"github.com/brylie/luctl/internal/project"
 	"github.com/spf13/cobra"
 )
@@ -43,7 +42,7 @@ func newProjectInstallCmd() *cobra.Command {
 }
 
 func installPackages(cmd *cobra.Command, p *project.Project, entries []project.PackageEntry) []string {
-	client := contentdb.New()
+	client := newClient()
 
 	var failed []string
 
