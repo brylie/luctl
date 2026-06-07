@@ -13,3 +13,10 @@ repos:
         language: system
         entry: mise exec -- markdownlint-cli2
         types: [markdown]
+
+      - id: coverage
+        name: test coverage (≥80%)
+        language: system
+        entry: go run ./scripts/check_coverage.go
+        pass_filenames: false
+        stages: [push]

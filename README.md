@@ -272,8 +272,9 @@ luctl completion fish > ~/.config/fish/completions/luctl.fish
 Install [mise](https://mise.jdx.dev/getting-started.html), then run:
 
 ```sh
-mise install   # installs Go, golangci-lint, markdownlint-cli2, prek, and other tools
-prek install   # registers the git pre-commit hook for this repo
+mise install                              # installs Go, golangci-lint, markdownlint-cli2, prek, …
+prek install                              # register the pre-commit hook
+prek install --hook-type pre-push         # register the pre-push hook (coverage gate)
 ```
 
 That's it — all tools are pinned in `mise.toml` and installed locally to the project.
@@ -303,14 +304,20 @@ godot). Markdown rules are in `.markdownlint.json`.
 Install the hooks once after cloning:
 
 ```sh
-mise install        # install all tools (go, golangci-lint, markdownlint-cli2, prek, …)
-prek install        # register the git pre-commit hook
+mise install                              # install all tools (go, golangci-lint, markdownlint-cli2, prek, …)
+prek install                              # register the pre-commit hook
+prek install --hook-type pre-push         # register the pre-push hook (coverage gate)
 ```
 
-The hook runs automatically on every `git commit`:
+Pre-commit hooks run on every `git commit`:
 
 - **golangci-lint** — full lint suite on all Go packages (`./...`)
 - **markdownlint-cli2** — markdown style checks on staged `.md` files
+
+The pre-push hook runs on every `git push`:
+
+- **coverage** — runs the full test suite and fails if total coverage drops below 80%
+  (`go run ./scripts/check_coverage.go`; uses only Go, works on all platforms)
 
 Run all hooks manually at any time:
 
