@@ -330,9 +330,9 @@ func TestNewRootCmd(t *testing.T) {
 	if root.Use != "luctl" {
 		t.Errorf("root.Use: want luctl, got %q", root.Use)
 	}
-	// Root should have exactly 2 subcommands: package and project.
-	if len(root.Commands()) != 2 {
-		t.Errorf("want 2 subcommands, got %d", len(root.Commands()))
+	// Root should have exactly 3 subcommands: package, project, and server.
+	if len(root.Commands()) != 3 {
+		t.Errorf("want 3 subcommands, got %d", len(root.Commands()))
 	}
 }
 
@@ -362,6 +362,22 @@ func TestNewProjectCmd(t *testing.T) {
 		names[sub.Name()] = true
 	}
 	for _, want := range []string{"init", "install", "status", "fmt", "sync"} {
+		if !names[want] {
+			t.Errorf("subcommand %q not registered", want)
+		}
+	}
+}
+
+func TestNewServerCmd(t *testing.T) {
+	cmd := newServerCmd()
+	if cmd == nil {
+		t.Fatal("newServerCmd returned nil")
+	}
+	names := make(map[string]bool)
+	for _, sub := range cmd.Commands() {
+		names[sub.Name()] = true
+	}
+	for _, want := range []string{"backup", "restore"} {
 		if !names[want] {
 			t.Errorf("subcommand %q not registered", want)
 		}
