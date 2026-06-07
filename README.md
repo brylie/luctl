@@ -271,13 +271,36 @@ luctl completion fish > ~/.config/fish/completions/luctl.fish
 # Run without building
 go run . package search mobs
 
+# Run tests
+go test ./...
+
 # Lint (requires golangci-lint via mise)
 mise exec -- golangci-lint run ./...
 
-# Run tests (once added)
-go test ./...
+# Lint markdown
+mise exec -- markdownlint-cli2 "**/*.md"
 ```
 
 The linter config is in `.golangci.yml`. It enforces correctness rules (errcheck,
 staticcheck, gosec), HTTP safety (noctx, bodyclose), and style (revive, nlreturn,
-godot). Run it before every commit.
+godot). Markdown rules are in `.markdownlint.json`.
+
+### Pre-commit hooks
+
+Install the hooks once after cloning:
+
+```sh
+mise install        # install all tools (go, golangci-lint, markdownlint-cli2, prek, …)
+prek install        # register the git pre-commit hook
+```
+
+The hook runs automatically on every `git commit`:
+
+- **golangci-lint** — full lint suite on all Go packages (`./...`)
+- **markdownlint-cli2** — markdown style checks on staged `.md` files
+
+Run all hooks manually at any time:
+
+```sh
+mise exec -- prek run --all-files
+```
