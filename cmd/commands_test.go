@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -880,5 +882,140 @@ func TestServerBackupCreateCmd(t *testing.T) {
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("Execute: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// server restore
+// ---------------------------------------------------------------------------
+
+// emptyTarGz builds a valid but empty tar.gz archive.
+func emptyTarGz(t *testing.T) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	_ = tw.Close()
+	_ = gz.Close()
+
+	return buf.Bytes()
+}
+
+func TestServerRestoreCmd_NoManifest(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	cmd := newServerRestoreCmd()
+	silenceCmd(cmd)
+
+	if err := cmd.Execute(); err == nil {
+		t.Error("expected error when no luanti.toml, got nil")
+	}
+}
+
+func TestServerRestoreCmd_NoWorldDir(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	defer ts.Close()
+
+	dir := t.TempDir()
+	setupBackupManifest(t, dir, ts.URL)
+
+	// project.Default sets a non-empty WorldDir; clear it explicitly.
+	p, err := project.Load(filepath.Join(dir, project.Filename))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	p.Paths.WorldDir = ""
+
+	if err := project.Save(p, filepath.Join(dir, project.Filename)); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	cmd := newServerRestoreCmd()
+	silenceCmd(cmd)
+	cmd.SetArgs([]string{"backup.tar.gz"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Error("expected error when paths.world_dir is empty, got nil")
+	}
+}
+
+func TestServerRestoreCmd_Cancelled(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	defer ts.Close()
+
+	dir := t.TempDir()
+	worldDir := filepath.Join(dir, "world")
+
+	if err := os.Mkdir(worldDir, 0o750); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+
+	setupBackupManifest(t, dir, ts.URL)
+
+	p, err := project.Load(filepath.Join(dir, project.Filename))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	p.Paths.WorldDir = worldDir
+
+	if err := project.Save(p, filepath.Join(dir, project.Filename)); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	cmd := newServerRestoreCmd()
+	silenceCmd(cmd)
+	cmd.SetArgs([]string{"backup.tar.gz"})
+	cmd.SetIn(strings.NewReader("n\n"))
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute (cancelled): %v", err)
+	}
+}
+
+func TestServerRestoreCmd_Force(t *testing.T) {
+	archive := emptyTarGz(t)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			return
+		}
+		_, _ = w.Write(archive)
+	}))
+	defer ts.Close()
+
+	dir := t.TempDir()
+	worldDir := filepath.Join(dir, "world")
+
+	if err := os.Mkdir(worldDir, 0o750); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+
+	setupBackupManifest(t, dir, ts.URL)
+
+	p, err := project.Load(filepath.Join(dir, project.Filename))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	p.Paths.WorldDir = worldDir
+
+	if err := project.Save(p, filepath.Join(dir, project.Filename)); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	cmd := newServerRestoreCmd()
+	silenceCmd(cmd)
+	cmd.SetArgs([]string{"--force", "backup.tar.gz"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute (force): %v", err)
 	}
 }
