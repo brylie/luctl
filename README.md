@@ -41,6 +41,30 @@ and backups directly on the server side.
 
 ## Install
 
+### Download a release binary
+
+Pre-compiled binaries for Linux, macOS, and Windows are available on the
+[releases page](https://github.com/brylie/luctl/releases). Download the archive for
+your platform, extract it, and move the binary to a directory on your `$PATH`:
+
+```sh
+# Example: Linux amd64
+tar -xzf luctl_<version>_linux_amd64.tar.gz
+mv luctl /usr/local/bin/
+```
+
+Windows releases are distributed as `.zip` archives.
+
+### Install with `go install`
+
+If you have Go installed, you can install the latest release directly:
+
+```sh
+go install github.com/brylie/luctl@latest
+```
+
+The package is also indexed at [pkg.go.dev/github.com/brylie/luctl](https://pkg.go.dev/github.com/brylie/luctl).
+
 ### Build from source
 
 ```sh
