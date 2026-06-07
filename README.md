@@ -115,6 +115,139 @@ Once the manifest exists:
 
 ---
 
+## Server backups
+
+`luctl server backup create` uploads a timestamped tar.gz of your world directory and
+`minetest.conf` to any S3-compatible provider (DigitalOcean Spaces, Backblaze B2, MinIO,
+AWS S3, …).
+
+Backups are safe to run against a live server. SQLite world databases (`map.sqlite`,
+`players.sqlite`, etc.) are snapshotted with SQLite's `VACUUM INTO` command, which
+acquires only a shared read lock and produces a consistent point-in-time copy. SQLite
+auxiliary files (`-journal`, `-wal`, `-shm`) are excluded automatically.
+
+Add a `[backup]` section to your `luanti.toml`:
+
+```toml
+[backup]
+  bucket   = "my-luanti-backups"
+  endpoint = "https://nyc3.digitaloceanspaces.com"   # region endpoint — NOT the bucket-specific URL
+  region   = "nyc3"
+  prefix   = "luanti/"
+```
+
+> **DigitalOcean Spaces:** use the *region* endpoint (`https://REGION.digitaloceanspaces.com`),
+> **not** the bucket-specific URL (`https://BUCKET.REGION.digitaloceanspaces.com`).
+> The bucket-specific URL combined with path-style access (which `luctl` uses for provider
+> compatibility) causes a doubled path and breaks listing.
+
+### Credentials
+
+Never pass credentials on the command line — they appear in `ps aux` and shell history.
+Store them in a file readable only by the service account:
+
+```sh
+sudo install -d -m 700 /etc/luctl
+sudo install -m 600 /dev/null /etc/luctl/credentials
+sudo nano /etc/luctl/credentials   # fill in the two lines below, then save
+```
+
+`/etc/luctl/credentials`:
+
+```sh
+LUCTL_S3_ACCESS_KEY=your-access-key
+LUCTL_S3_SECRET_KEY=your-secret-key
+```
+
+See `.env.example` for additional safe options (interactive `read -s`, direnv).
+
+### Scheduled backups — systemd timer (Ubuntu / Debian / Arch / Fedora)
+
+Create the service unit `/etc/systemd/system/luctl-backup.service`:
+
+```ini
+[Unit]
+Description=Luanti server backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=luanti
+WorkingDirectory=/opt/luanti          # directory containing luanti.toml
+ExecStart=/usr/local/bin/luctl server backup create
+EnvironmentFile=/etc/luctl/credentials
+
+# Basic hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/luanti
+```
+
+> Replace `User=luanti` and `WorkingDirectory=` with the account and directory that
+> own your server files. `EnvironmentFile=` loads credentials without exposing them in
+> the process list or the journal.
+
+Create the timer unit `/etc/systemd/system/luctl-backup.timer`:
+
+```ini
+[Unit]
+Description=Daily Luanti server backup
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable and start:
+
+```sh
+systemctl daemon-reload
+systemctl enable --now luctl-backup.timer
+
+# Verify the timer is scheduled
+systemctl list-timers luctl-backup.timer
+
+# Run a backup immediately to test
+systemctl start luctl-backup.service
+
+# Check the result
+journalctl -u luctl-backup.service -n 20
+```
+
+### Scheduled backups — cron (alternative)
+
+If you prefer cron, wrap the command in a script so the credentials are never on the
+cron command line (which is visible in `ps aux` during execution).
+
+Create `/usr/local/bin/luctl-backup` (owned by root, executable only by the service user):
+
+```sh
+#!/bin/sh
+# Load credentials from a protected file; they will not appear in the process list.
+. /etc/luctl/credentials
+exec /usr/local/bin/luctl server backup create
+```
+
+```sh
+sudo chmod 700 /usr/local/bin/luctl-backup
+sudo chown root:root /usr/local/bin/luctl-backup
+```
+
+Add to the crontab of the user that owns the server directory (`crontab -e`):
+
+```cron
+# Daily backup at 02:00, log to file
+0 2 * * * /usr/local/bin/luctl-backup >> /var/log/luctl-backup.log 2>&1
+```
+
+---
+
 ## Shell autocompletion
 
 Cobra generates autocompletion scripts for bash, zsh, fish, and PowerShell:
