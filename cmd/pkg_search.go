@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const pkgSearchFmt = "%-30s %-8s %s\n"
+
 func newPkgSearchCmd() *cobra.Command {
 	var searchType string
 	var searchLimit int
@@ -29,8 +31,8 @@ func newPkgSearchCmd() *cobra.Command {
 				return nil
 			}
 
-			fmt.Printf("%-30s %-8s %s\n", "PACKAGE", "TYPE", "DESCRIPTION")
-			fmt.Printf("%-30s %-8s %s\n", "-------", "----", "-----------")
+			fmt.Printf(pkgSearchFmt, "PACKAGE", "TYPE", "DESCRIPTION")
+			fmt.Printf(pkgSearchFmt, "-------", "----", "-----------")
 
 			for i := range packages {
 				key := fmt.Sprintf("%s/%s", packages[i].Author, packages[i].Name)
@@ -39,7 +41,7 @@ func newPkgSearchCmd() *cobra.Command {
 					desc = desc[:57] + "..."
 				}
 
-				fmt.Printf("%-30s %-8s %s\n", key, packages[i].Type, desc)
+				fmt.Printf(pkgSearchFmt, key, packages[i].Type, desc)
 			}
 
 			return nil

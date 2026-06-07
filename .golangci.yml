@@ -67,7 +67,7 @@ linters:
       max-complexity: 15
 
     gocognit:
-      min-complexity: 20
+      min-complexity: 15
 
     funlen:
       lines: 80

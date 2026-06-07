@@ -248,6 +248,20 @@ func enableModpackSubMods(worldDir, modpackDir string) {
 	}
 }
 
+// defaultModsDir returns modsDir if non-empty, otherwise ./mods relative to cwd.
+func defaultModsDir(modsDir string) (string, error) {
+	if modsDir != "" {
+		return modsDir, nil
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("getting working directory: %w", err)
+	}
+
+	return filepath.Join(cwd, "mods"), nil
+}
+
 func splitAuthorName(arg string) (author, name string, err error) {
 	parts := strings.SplitN(arg, "/", 2)
 

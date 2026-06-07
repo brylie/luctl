@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -15,14 +14,9 @@ func newPkgListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List locally installed mods.",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			dir := modsDir
-			if dir == "" {
-				cwd, err := os.Getwd()
-				if err != nil {
-					return fmt.Errorf("getting working directory: %w", err)
-				}
-
-				dir = filepath.Join(cwd, "mods")
+			dir, err := defaultModsDir(modsDir)
+			if err != nil {
+				return err
 			}
 
 			entries, err := os.ReadDir(dir)

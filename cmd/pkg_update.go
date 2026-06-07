@@ -33,14 +33,9 @@ func newPkgUpdateCmd() *cobra.Command {
 
 			author, name := parts[0], parts[1]
 
-			dir := modsDir
-			if dir == "" {
-				cwd, err := os.Getwd()
-				if err != nil {
-					return fmt.Errorf("getting working directory: %w", err)
-				}
-
-				dir = filepath.Join(cwd, "mods")
+			dir, err := defaultModsDir(modsDir)
+			if err != nil {
+				return err
 			}
 
 			existing := filepath.Join(dir, name)

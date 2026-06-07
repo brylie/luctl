@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const pkgStatusFmt = "%-35s %-8s %s\n"
+
 func newProjectStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
@@ -42,8 +44,8 @@ func newProjectStatusCmd() *cobra.Command {
 }
 
 func renderPackageStatus(p *project.Project, entries []project.PackageEntry) (installed, missing int) {
-	fmt.Printf("%-35s %-8s %s\n", "PACKAGE", "TYPE", "STATUS")
-	fmt.Printf("%-35s %-8s %s\n", "-------", "----", "------")
+	fmt.Printf(pkgStatusFmt, "PACKAGE", "TYPE", "STATUS")
+	fmt.Printf(pkgStatusFmt, "-------", "----", "------")
 
 	for _, pkg := range entries {
 		pkgType, name, dir := resolvePackage(pkg, p.Paths)
@@ -63,7 +65,7 @@ func renderPackageStatus(p *project.Project, entries []project.PackageEntry) (in
 			missing++
 		}
 
-		fmt.Printf("%-35s %-8s %s\n", pkg.ID, pkgType, status)
+		fmt.Printf(pkgStatusFmt, pkg.ID, pkgType, status)
 	}
 
 	return installed, missing

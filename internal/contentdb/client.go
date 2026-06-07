@@ -22,6 +22,7 @@ var BaseURL = "https://content.luanti.org"
 const (
 	// maxDecompressedSize caps zip extraction to 500 MB to prevent decompression bombs.
 	maxDecompressedSize = 500 * 1024 * 1024
+	apiErrFmt           = "API error: %s"
 )
 
 // Client is a minimal ContentDB API client.
@@ -82,7 +83,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 	defer drainAndClose(resp)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: %s", resp.Status)
+		return nil, fmt.Errorf(apiErrFmt, resp.Status)
 	}
 
 	// The list endpoint returns a plain JSON array; with pagination it's an object.
@@ -118,7 +119,7 @@ func (c *Client) GetPackage(ctx context.Context, author, name string) (*Package,
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: %s", resp.Status)
+		return nil, fmt.Errorf(apiErrFmt, resp.Status)
 	}
 
 	var pkg Package
@@ -138,7 +139,7 @@ func (c *Client) GetReleases(ctx context.Context, author, name string) ([]Releas
 	defer drainAndClose(resp)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: %s", resp.Status)
+		return nil, fmt.Errorf(apiErrFmt, resp.Status)
 	}
 
 	var releases []Release
@@ -195,7 +196,7 @@ func (c *Client) GetDependencies(ctx context.Context, author, name string) (Depe
 	defer drainAndClose(resp)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: %s", resp.Status)
+		return nil, fmt.Errorf(apiErrFmt, resp.Status)
 	}
 
 	var deps DependenciesResponse
