@@ -606,8 +606,9 @@ func TestProjectInstallCmd_SingleMod(t *testing.T) {
 
 	cmd := newProjectInstallCmd()
 	silenceCmd(cmd)
-	// Ignore error — the command may partially succeed; what matters is coverage.
-	_ = cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
 
 	if _, err := os.Stat(filepath.Join(modsDir, "mod1")); err != nil {
 		t.Errorf("mod1 should be extracted to mods dir: %v", err)
