@@ -13,9 +13,19 @@ import (
 
 // createArchive writes a tar.gz of all paths in sources into w.
 // Each source path is walked recursively; files are stored relative to their parent directory.
-func createArchive(ctx context.Context, w io.Writer, sources []string) error {
+func createArchive(ctx context.Context, w io.Writer, sources []string) (retErr error) {
 	gz := gzip.NewWriter(w)
 	tw := tar.NewWriter(gz)
+
+	defer func() {
+		if err := tw.Close(); err != nil && retErr == nil {
+			retErr = fmt.Errorf("closing tar writer: %w", err)
+		}
+
+		if err := gz.Close(); err != nil && retErr == nil {
+			retErr = fmt.Errorf("closing gzip writer: %w", err)
+		}
+	}()
 
 	for _, src := range sources {
 		info, err := os.Stat(src)
@@ -32,14 +42,6 @@ func createArchive(ctx context.Context, w io.Writer, sources []string) error {
 		if err := walkAndAdd(ctx, tw, src, base); err != nil {
 			return err
 		}
-	}
-
-	if err := tw.Close(); err != nil {
-		return fmt.Errorf("closing tar writer: %w", err)
-	}
-
-	if err := gz.Close(); err != nil {
-		return fmt.Errorf("closing gzip writer: %w", err)
 	}
 
 	return nil

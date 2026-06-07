@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -13,7 +15,9 @@ import (
 const threshold = 80.0
 
 func main() {
-	cmd := exec.Command("go", "test", "./...", "-coverprofile=coverage.out", "-count=1")
+	goExe := filepath.Join(runtime.GOROOT(), "bin", "go")
+
+	cmd := exec.Command(goExe, "test", "./...", "-coverprofile=coverage.out", "-count=1")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -21,7 +25,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	out, err := exec.Command("go", "tool", "cover", "-func=coverage.out").Output()
+	out, err := exec.Command(goExe, "tool", "cover", "-func=coverage.out").Output()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "go tool cover:", err)
 		os.Exit(1)

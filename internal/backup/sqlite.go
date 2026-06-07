@@ -20,7 +20,7 @@ func sqliteBackup(ctx context.Context, src, dst string) error {
 	defer func() { _ = db.Close() }()
 
 	if _, err := db.ExecContext(ctx, "VACUUM INTO ?", dst); err != nil {
-		return fmt.Errorf("VACUUM INTO %s: %w", src, err)
+		return fmt.Errorf("VACUUM INTO %s -> %s: %w", src, dst, err)
 	}
 
 	return nil
