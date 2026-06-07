@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-07
+
+### Added
+
+#### Server backup and restore (`luctl server`)
+
+- `luctl server backup create` — archives the world directory and `minetest.conf` as a
+  timestamped tar.gz and uploads it to any S3-compatible provider (DigitalOcean Spaces,
+  Backblaze B2, MinIO, AWS S3, …).
+- `luctl server backup list` — lists available backups in the configured bucket with
+  name, size, and modification timestamp.
+- `luctl server restore [backup-name]` — downloads and extracts a backup into the world
+  directory; uses the most recent backup when no name is given.
+- **Live-safe SQLite backup** — world databases are snapshotted via SQLite's `VACUUM INTO`,
+  which holds only a shared read lock. Backups can run against a live server without
+  downtime or data inconsistency. SQLite auxiliary files (`-journal`, `-wal`, `-shm`) are
+  excluded from archives automatically.
+- `[backup]` section in `luanti.toml` — configures bucket, region endpoint, and key
+  prefix. Credentials (`LUCTL_S3_ACCESS_KEY` / `LUCTL_S3_SECRET_KEY`) are read from
+  environment variables only and are never written to disk.
+- `.env.example` — documents three OWASP-safe credential-loading patterns (`source`,
+  `read -rs`, direnv) that keep secrets out of shell history and `ps aux`.
+- Scheduled backup guidance in `README.md` — systemd timer unit with `EnvironmentFile=`
+  hardening (`NoNewPrivileges`, `ProtectSystem=strict`) and a cron wrapper-script approach.
+
+## [0.2.0] - 2026-06-07
+
+### Added
+
+- Go package build pipeline with `goreleaser` for Linux, macOS, and Windows.
+
 ## [0.1.0] - 2026-06-07
 
 Initial release.

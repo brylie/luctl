@@ -1,13 +1,18 @@
 # compiled binary
 luctl
 
+# local server manifest used for development / manual testing
+luanti.toml
+
+# credentials — never commit
+.env
+
+# test coverage output
+coverage.*
+
 # macOS
 .DS_Store
 
 # editor
 .idea/
 .vscode/
-
-# test coverage
-coverage.*
-coverage/

@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -330,9 +332,9 @@ func TestNewRootCmd(t *testing.T) {
 	if root.Use != "luctl" {
 		t.Errorf("root.Use: want luctl, got %q", root.Use)
 	}
-	// Root should have exactly 2 subcommands: package and project.
-	if len(root.Commands()) != 2 {
-		t.Errorf("want 2 subcommands, got %d", len(root.Commands()))
+	// Root should have exactly 3 subcommands: package, project, and server.
+	if len(root.Commands()) != 3 {
+		t.Errorf("want 3 subcommands, got %d", len(root.Commands()))
 	}
 }
 
@@ -362,6 +364,92 @@ func TestNewProjectCmd(t *testing.T) {
 		names[sub.Name()] = true
 	}
 	for _, want := range []string{"init", "install", "status", "fmt", "sync"} {
+		if !names[want] {
+			t.Errorf("subcommand %q not registered", want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// backupSources (server backup)
+// ---------------------------------------------------------------------------
+
+func TestBackupSources_BothPresent(t *testing.T) {
+	dir := t.TempDir()
+	worldDir := filepath.Join(dir, "world")
+
+	if err := os.Mkdir(worldDir, 0o750); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+
+	confFile := filepath.Join(dir, "minetest.conf")
+
+	if err := os.WriteFile(confFile, []byte(""), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	p := &project.Project{}
+	p.Paths.WorldDir = worldDir
+	p.Paths.ConfFile = confFile
+
+	sources, err := backupSources(p)
+	if err != nil {
+		t.Fatalf("backupSources: %v", err)
+	}
+
+	if len(sources) != 2 {
+		t.Errorf("want 2 sources, got %d", len(sources))
+	}
+}
+
+func TestBackupSources_OnlyWorldDir(t *testing.T) {
+	dir := t.TempDir()
+	worldDir := filepath.Join(dir, "world")
+
+	if err := os.Mkdir(worldDir, 0o750); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+
+	p := &project.Project{}
+	p.Paths.WorldDir = worldDir
+
+	sources, err := backupSources(p)
+	if err != nil {
+		t.Fatalf("backupSources: %v", err)
+	}
+
+	if len(sources) != 1 || sources[0] != worldDir {
+		t.Errorf("want [%s], got %v", worldDir, sources)
+	}
+}
+
+func TestBackupSources_MissingPath(t *testing.T) {
+	p := &project.Project{}
+	p.Paths.WorldDir = "/nonexistent/world"
+
+	if _, err := backupSources(p); err == nil {
+		t.Error("expected error for missing world_dir, got nil")
+	}
+}
+
+func TestBackupSources_NoSources(t *testing.T) {
+	p := &project.Project{}
+
+	if _, err := backupSources(p); err == nil {
+		t.Error("expected error when no sources configured, got nil")
+	}
+}
+
+func TestNewServerCmd(t *testing.T) {
+	cmd := newServerCmd()
+	if cmd == nil {
+		t.Fatal("newServerCmd returned nil")
+	}
+	names := make(map[string]bool)
+	for _, sub := range cmd.Commands() {
+		names[sub.Name()] = true
+	}
+	for _, want := range []string{"backup", "restore"} {
 		if !names[want] {
 			t.Errorf("subcommand %q not registered", want)
 		}
@@ -652,5 +740,282 @@ func TestProjectInstallCmd_NoManifest(t *testing.T) {
 	silenceCmd(cmd)
 	if err := cmd.Execute(); err == nil {
 		t.Error("expected error when no luanti.toml, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// server backup list
+// ---------------------------------------------------------------------------
+
+const fakeServerListXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Name>test-bucket</Name>
+  <IsTruncated>false</IsTruncated>
+  <Contents>
+    <Key>luanti/backup-2026-06-07T15-33-51Z.tar.gz</Key>
+    <LastModified>2026-06-07T15:33:53.000Z</LastModified>
+    <Size>12345</Size>
+  </Contents>
+</ListBucketResult>`
+
+const fakeServerEmptyXML = `<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Name>test-bucket</Name>
+  <IsTruncated>false</IsTruncated>
+</ListBucketResult>`
+
+// setupBackupManifest writes a minimal manifest pointing at ts and changes
+// into dir for the duration of the test.
+func setupBackupManifest(t *testing.T, dir, tsURL string) {
+	t.Helper()
+
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	p := project.Default()
+	p.Backup.Bucket = "test-bucket"
+	p.Backup.Endpoint = tsURL
+	p.Backup.Region = "us-east-1"
+	p.Backup.Prefix = "luanti/"
+
+	if err := project.Save(p, filepath.Join(dir, project.Filename)); err != nil {
+		t.Fatalf("Save manifest: %v", err)
+	}
+
+	t.Setenv("LUCTL_S3_ACCESS_KEY", "test-key")
+	t.Setenv("LUCTL_S3_SECRET_KEY", "test-secret")
+}
+
+func TestServerBackupListCmd_WithResults(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		_, _ = w.Write([]byte(fakeServerListXML))
+	}))
+	defer ts.Close()
+
+	setupBackupManifest(t, t.TempDir(), ts.URL)
+
+	cmd := newServerBackupListCmd()
+	silenceCmd(cmd)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+func TestServerBackupListCmd_NoBackups(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/xml")
+		_, _ = w.Write([]byte(fakeServerEmptyXML))
+	}))
+	defer ts.Close()
+
+	setupBackupManifest(t, t.TempDir(), ts.URL)
+
+	cmd := newServerBackupListCmd()
+	silenceCmd(cmd)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute (no backups): %v", err)
+	}
+}
+
+func TestServerBackupListCmd_NoManifest(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	cmd := newServerBackupListCmd()
+	silenceCmd(cmd)
+
+	if err := cmd.Execute(); err == nil {
+		t.Error("expected error when no luanti.toml, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// server backup create
+// ---------------------------------------------------------------------------
+
+func TestServerBackupCreateCmd(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("ETag", `"abc123"`)
+	}))
+	defer ts.Close()
+
+	dir := t.TempDir()
+	worldDir := filepath.Join(dir, "world")
+
+	if err := os.Mkdir(worldDir, 0o750); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+
+	confFile := filepath.Join(dir, "minetest.conf")
+
+	if err := os.WriteFile(confFile, []byte(""), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	setupBackupManifest(t, dir, ts.URL)
+
+	p, err := project.Load(filepath.Join(dir, project.Filename))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	p.Paths.WorldDir = worldDir
+	p.Paths.ConfFile = confFile
+
+	if err := project.Save(p, filepath.Join(dir, project.Filename)); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	cmd := newServerBackupCreateCmd()
+	silenceCmd(cmd)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// server restore
+// ---------------------------------------------------------------------------
+
+// emptyTarGz builds a valid but empty tar.gz archive.
+func emptyTarGz(t *testing.T) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	_ = tw.Close()
+	_ = gz.Close()
+
+	return buf.Bytes()
+}
+
+func TestServerRestoreCmd_NoManifest(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	cmd := newServerRestoreCmd()
+	silenceCmd(cmd)
+
+	if err := cmd.Execute(); err == nil {
+		t.Error("expected error when no luanti.toml, got nil")
+	}
+}
+
+func TestServerRestoreCmd_NoWorldDir(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	defer ts.Close()
+
+	dir := t.TempDir()
+	setupBackupManifest(t, dir, ts.URL)
+
+	// project.Default sets a non-empty WorldDir; clear it explicitly.
+	p, err := project.Load(filepath.Join(dir, project.Filename))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	p.Paths.WorldDir = ""
+
+	if err := project.Save(p, filepath.Join(dir, project.Filename)); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	cmd := newServerRestoreCmd()
+	silenceCmd(cmd)
+	cmd.SetArgs([]string{"backup.tar.gz"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Error("expected error when paths.world_dir is empty, got nil")
+	}
+}
+
+func TestServerRestoreCmd_Cancelled(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	defer ts.Close()
+
+	dir := t.TempDir()
+	worldDir := filepath.Join(dir, "world")
+
+	if err := os.Mkdir(worldDir, 0o750); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+
+	setupBackupManifest(t, dir, ts.URL)
+
+	p, err := project.Load(filepath.Join(dir, project.Filename))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	p.Paths.WorldDir = worldDir
+
+	if err := project.Save(p, filepath.Join(dir, project.Filename)); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	cmd := newServerRestoreCmd()
+	silenceCmd(cmd)
+	cmd.SetArgs([]string{"backup.tar.gz"})
+	cmd.SetIn(strings.NewReader("n\n"))
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute (cancelled): %v", err)
+	}
+}
+
+func TestServerRestoreCmd_Force(t *testing.T) {
+	archive := emptyTarGz(t)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			return
+		}
+		_, _ = w.Write(archive)
+	}))
+	defer ts.Close()
+
+	dir := t.TempDir()
+	worldDir := filepath.Join(dir, "world")
+
+	if err := os.Mkdir(worldDir, 0o750); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+
+	setupBackupManifest(t, dir, ts.URL)
+
+	p, err := project.Load(filepath.Join(dir, project.Filename))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	p.Paths.WorldDir = worldDir
+
+	if err := project.Save(p, filepath.Join(dir, project.Filename)); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	cmd := newServerRestoreCmd()
+	silenceCmd(cmd)
+	cmd.SetArgs([]string{"--force", "backup.tar.gz"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute (force): %v", err)
 	}
 }

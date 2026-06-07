@@ -24,6 +24,16 @@ type Project struct {
 	Paths    PathsConfig    `toml:"paths"`
 	Packages PackagesConfig `toml:"packages"`
 	Config   map[string]any `toml:"config"`
+	Backup   BackupConfig   `toml:"backup"`
+}
+
+// BackupConfig holds S3-compatible storage settings for server backups.
+// Credentials are NOT stored here — set LUCTL_S3_ACCESS_KEY and LUCTL_S3_SECRET_KEY env vars.
+type BackupConfig struct {
+	Bucket   string `toml:"bucket"`
+	Endpoint string `toml:"endpoint"`
+	Region   string `toml:"region"`
+	Prefix   string `toml:"prefix"`
 }
 
 // ServerConfig holds server identity and network settings.
