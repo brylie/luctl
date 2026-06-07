@@ -6,36 +6,35 @@ a declarative `luanti.toml` project manifest — similar to `package.json` or `p
 — so your server configuration, mod list, and world settings are all version-controlled
 in one place.
 
+The Luanti client ships a built-in Content browser, but it installs mods into the
+*client's* local directory — not a remote server. `luctl` manages packages, configuration,
+and backups directly on the server side.
+
 ---
 
-## Why
+## Features
 
-The Luanti client ships a built-in Content browser, but it installs mods into the
-*client's* local directory — not a remote server. When running a self-hosted server,
-managing packages means dropping files into the server's `mods/` directory by hand,
-then remembering to enable them in `minetest.conf` and `world.mt`.
-
-`luctl` automates the entire workflow:
-
-- **Package management** — search ContentDB, install, update, and list mods and games.
-  Installing a mod in a project directory automatically enables it in `world.mt` and
-  records it in `luanti.toml`.
-
-- **Project manifest (`luanti.toml`)** — declares your server identity, mod list,
-  filesystem paths, and arbitrary `minetest.conf` key/value pairs. Commit it to
-  version control so the server is fully reproducible from a single file.
-
-- **Config sync** — push `[config]` values from `luanti.toml` into `minetest.conf`
-  with one command, updating existing keys in-place without touching your comments.
-
-- **Mod enable/disable** — toggle mods in `world.mt` by name, without opening any file.
+- **Package management** — search ContentDB, install, update, and list mods and games;
+  installing automatically enables the mod in `world.mt` and records it in `luanti.toml`
+- **Mod enable/disable** — toggle `load_mod_<name>` in `world.mt` by name without editing
+  any file manually
+- **Project manifest** — `luanti.toml` declares server identity, filesystem paths, mod list,
+  and arbitrary `minetest.conf` keys; commit it to reproduce the full server on any machine
+- **Config sync** — push `[config]` values from `luanti.toml` into `minetest.conf` in one
+  command, updating existing keys in-place without touching comments or unrelated settings
+- **Server backups** — upload timestamped `tar.gz` archives to any S3-compatible provider;
+  safe to run against a live server via SQLite `VACUUM INTO`
+- **Server restore** — download and extract a named backup (or the most recent) into the
+  world directory, with an interactive confirmation prompt and `--force` for automation
+- **Shell autocompletion** — bash, zsh, fish, and PowerShell via `luctl completion`
+- **Cross-platform** — single static binary, no CGo, no runtime dependencies
 
 ---
 
 ## Requirements
 
 - **Go 1.22+** (the project is built with 1.26)
-- Network access to `https://content.luanti.org`
+- Network access to `https://content.luanti.org` for package commands
 - A Luanti server with its data directory accessible on the local filesystem
 
 ---
@@ -46,20 +45,14 @@ then remembering to enable them in `minetest.conf` and `world.mt`.
 
 ```sh
 git clone https://github.com/brylie/luctl
-cd luctl/cli
+cd luctl
 go build -o luctl .
-```
-
-Move the binary somewhere on your `$PATH`:
-
-```sh
 mv luctl /usr/local/bin/
 ```
 
-### Cross-platform releases
+### Cross-platform builds
 
-Use `GOOS` and `GOARCH` to cross-compile a single static binary for any platform.
-No CGo, no runtime dependencies.
+No CGo, no runtime dependencies — cross-compile a single static binary for any platform:
 
 | Platform              | Command                                                            |
 | --------------------- | ------------------------------------------------------------------ |
@@ -71,15 +64,58 @@ No CGo, no runtime dependencies.
 
 ---
 
-## Usage
+## Quick start
 
-Run `luctl --help` for the full command reference, or `luctl <command> --help` for
-details on any subcommand. The two top-level namespaces are:
+```sh
+cd /opt/luanti                              # directory containing your server data
+luctl project init                          # scaffold luanti.toml with sensible defaults
+luctl package search farming               # search ContentDB
+luctl package install TenPlus1/farming    # install, enable in world.mt, record in luanti.toml
+luctl project sync                         # apply [config] values to minetest.conf
+```
 
-- **`luctl package`** — search, install, update, list, enable, and disable packages
-- **`luctl project`** — init, install, status, sync, fmt a `luanti.toml` manifest
+---
 
-### The `luanti.toml` project file
+## Command reference
+
+Run `luctl --help` for the full reference, or `luctl <command> --help` for any subcommand.
+
+### `luctl package` — package management
+
+| Command | Description |
+| ------- | ----------- |
+| `luctl package search <query>` | Search ContentDB by keyword; accepts `--type` and `--limit` |
+| `luctl package info <author/name>` | Show metadata for a package |
+| `luctl package install <author/name>` | Download, extract, enable in `world.mt`, and append to `luanti.toml` |
+| `luctl package update <author/name>` | Re-download a package to its latest ContentDB release |
+| `luctl package list` | List all installed mod directories |
+| `luctl package enable <name>` | Set `load_mod_<name> = true` in `world.mt` |
+| `luctl package disable <name>` | Set `load_mod_<name> = false` in `world.mt` |
+
+### `luctl project` — manifest management
+
+| Command | Description |
+| ------- | ----------- |
+| `luctl project init` | Scaffold `luanti.toml` with sensible defaults |
+| `luctl project install` | Install every package declared in `luanti.toml` |
+| `luctl project status` | Show which declared packages are installed or missing |
+| `luctl project sync` | Apply `[config]` values to `minetest.conf` in-place |
+| `luctl project fmt` | Sort and normalise the manifest (mod and game lists alphabetically) |
+
+### `luctl server` — backup and restore
+
+| Command | Description |
+| ------- | ----------- |
+| `luctl server backup create` | Archive world dir + `minetest.conf` and upload to S3 |
+| `luctl server backup list` | List available backups with name, size, and modification date |
+| `luctl server restore [backup-name]` | Download and extract a backup; uses the most recent if omitted |
+| `luctl server restore --force [backup-name]` | Same, but skip the overwrite confirmation prompt |
+
+---
+
+## Configuration
+
+### `luanti.toml` project manifest
 
 Run `luctl project init` in your server directory to create a manifest:
 
@@ -95,9 +131,9 @@ Run `luctl project init` in your server directory to create a manifest:
   conf_file = "./data/main-config/minetest.conf"
 
 [config]
-  # Any minetest.conf key can go here
-  enable_damage  = true
-  creative_mode  = false
+  # Any minetest.conf key can go here; applied by `luctl project sync`
+  enable_damage   = true
+  creative_mode   = false
   server_announce = false
 
 [packages]
@@ -105,28 +141,9 @@ Run `luctl project init` in your server directory to create a manifest:
   games = ["Luanti/minetest_game"]
 ```
 
-Once the manifest exists:
+### `[backup]` section
 
-- `luctl package install <author/name>` installs to the correct directory, enables
-  the mod in `world.mt`, and appends it to `[packages]` — all in one step.
-- `luctl project install` reproduces the full package list on a fresh machine.
-- `luctl project sync` pushes `[config]` values into `minetest.conf`.
-- `luctl project fmt` sorts and normalises the manifest in-place.
-
----
-
-## Server backups
-
-`luctl server backup create` uploads a timestamped tar.gz of your world directory and
-`minetest.conf` to any S3-compatible provider (DigitalOcean Spaces, Backblaze B2, MinIO,
-AWS S3, …).
-
-Backups are safe to run against a live server. SQLite world databases (`map.sqlite`,
-`players.sqlite`, etc.) are snapshotted with SQLite's `VACUUM INTO` command, which
-acquires only a shared read lock and produces a consistent point-in-time copy. SQLite
-auxiliary files (`-journal`, `-wal`, `-shm`) are excluded automatically.
-
-Add a `[backup]` section to your `luanti.toml`:
+Add a `[backup]` section to configure S3-compatible storage for `luctl server` commands:
 
 ```toml
 [backup]
@@ -138,8 +155,20 @@ Add a `[backup]` section to your `luanti.toml`:
 
 > **DigitalOcean Spaces:** use the *region* endpoint (`https://REGION.digitaloceanspaces.com`),
 > **not** the bucket-specific URL (`https://BUCKET.REGION.digitaloceanspaces.com`).
-> The bucket-specific URL combined with path-style access (which `luctl` uses for provider
-> compatibility) causes a doubled path and breaks listing.
+> Path-style access combined with the bucket-specific URL produces a doubled path that breaks listing.
+
+---
+
+## Server backups
+
+`luctl server backup create` archives the world directory and `minetest.conf` as a
+timestamped `tar.gz` and uploads it to any S3-compatible provider (DigitalOcean Spaces,
+Backblaze B2, MinIO, AWS S3, …).
+
+Backups are safe to run against a live server. SQLite world databases (`map.sqlite`,
+`players.sqlite`, etc.) are snapshotted via SQLite's `VACUUM INTO`, which acquires only a
+shared read lock and produces a consistent point-in-time copy. SQLite auxiliary files
+(`-journal`, `-wal`, `-shm`) are excluded automatically.
 
 ### Credentials
 
@@ -149,7 +178,7 @@ Store them in a file readable only by the service account:
 ```sh
 sudo install -d -m 700 /etc/luctl
 sudo install -m 600 /dev/null /etc/luctl/credentials
-sudo nano /etc/luctl/credentials   # fill in the two lines below, then save
+sudo nano /etc/luctl/credentials
 ```
 
 `/etc/luctl/credentials`:
@@ -159,11 +188,23 @@ LUCTL_S3_ACCESS_KEY=your-access-key
 LUCTL_S3_SECRET_KEY=your-secret-key
 ```
 
-See `.env.example` for additional safe options (interactive `read -s`, direnv).
+See `.env.example` for additional credential-loading patterns (interactive `read -s`, direnv).
 
-### Scheduled backups — systemd timer (Ubuntu / Debian / Arch / Fedora)
+### Restoring a backup
 
-Create the service unit `/etc/systemd/system/luctl-backup.service`:
+```sh
+luctl server backup list                          # see what's available
+luctl server restore                              # restore most recent (prompts for confirmation)
+luctl server restore backup-2026-01-15.tar.gz    # restore a specific backup
+luctl server restore --force                      # skip confirmation (for scripts/cron)
+```
+
+`luctl server restore` warns before overwriting the world directory and requires an
+explicit `y` to proceed. Pass `--force` to skip the prompt in automated contexts.
+
+### Scheduled backups — systemd timer
+
+Create `/etc/systemd/system/luctl-backup.service`:
 
 ```ini
 [Unit]
@@ -174,22 +215,16 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=luanti
-WorkingDirectory=/opt/luanti          # directory containing luanti.toml
+WorkingDirectory=/opt/luanti
 ExecStart=/usr/local/bin/luctl server backup create
 EnvironmentFile=/etc/luctl/credentials
-
-# Basic hardening
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ReadWritePaths=/opt/luanti
 ```
 
-> Replace `User=luanti` and `WorkingDirectory=` with the account and directory that
-> own your server files. `EnvironmentFile=` loads credentials without exposing them in
-> the process list or the journal.
-
-Create the timer unit `/etc/systemd/system/luctl-backup.timer`:
+Create `/etc/systemd/system/luctl-backup.timer`:
 
 ```ini
 [Unit]
@@ -204,53 +239,42 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-Enable and start:
+Enable and verify:
 
 ```sh
 systemctl daemon-reload
 systemctl enable --now luctl-backup.timer
-
-# Verify the timer is scheduled
 systemctl list-timers luctl-backup.timer
-
-# Run a backup immediately to test
-systemctl start luctl-backup.service
-
-# Check the result
+systemctl start luctl-backup.service   # run once to test
 journalctl -u luctl-backup.service -n 20
 ```
 
-### Scheduled backups — cron (alternative)
+### Scheduled backups — cron
 
-If you prefer cron, wrap the command in a script so the credentials are never on the
-cron command line (which is visible in `ps aux` during execution).
-
-Create `/usr/local/bin/luctl-backup` (owned by root, executable only by the service user):
+Wrap the command in a script so credentials are never visible on the command line:
 
 ```sh
 #!/bin/sh
-# Load credentials from a protected file; they will not appear in the process list.
 . /etc/luctl/credentials
 exec /usr/local/bin/luctl server backup create
 ```
+
+Save as `/usr/local/bin/luctl-backup`, then:
 
 ```sh
 sudo chmod 700 /usr/local/bin/luctl-backup
 sudo chown root:root /usr/local/bin/luctl-backup
 ```
 
-Add to the crontab of the user that owns the server directory (`crontab -e`):
+Add to the crontab of the user that owns the server directory:
 
 ```cron
-# Daily backup at 02:00, log to file
 0 2 * * * /usr/local/bin/luctl-backup >> /var/log/luctl-backup.log 2>&1
 ```
 
 ---
 
 ## Shell autocompletion
-
-Cobra generates autocompletion scripts for bash, zsh, fish, and PowerShell:
 
 ```sh
 # zsh
@@ -274,53 +298,31 @@ Install [mise](https://mise.jdx.dev/getting-started.html), then run:
 ```sh
 mise install                              # installs Go, golangci-lint, markdownlint-cli2, prek, …
 prek install                              # register the pre-commit hook
-prek install --hook-type pre-push         # register the pre-push hook (coverage gate)
+prek install --hook-type pre-push         # register the pre-push coverage gate
 ```
 
-That's it — all tools are pinned in `mise.toml` and installed locally to the project.
+All tools are pinned in `mise.toml` and installed locally to the project.
 
 ### Day-to-day commands
 
 ```sh
-# Run without building
-go run . package search mobs
-
-# Run tests
-go test ./...
-
-# Lint (requires golangci-lint via mise)
-mise exec -- golangci-lint run ./...
-
-# Lint markdown
-mise exec -- markdownlint-cli2 "**/*.md"
+go run . package search mobs              # run without building
+go test ./...                             # run tests
+mise exec -- golangci-lint run ./...      # lint Go
+mise exec -- markdownlint-cli2 "**/*.md"  # lint markdown
+mise exec -- prek run --all-files         # run all hooks manually
 ```
 
-The linter config is in `.golangci.yml`. It enforces correctness rules (errcheck,
-staticcheck, gosec), HTTP safety (noctx, bodyclose), and style (revive, nlreturn,
-godot). Markdown rules are in `.markdownlint.json`.
+### Hooks
 
-### Pre-commit hooks
+Pre-commit (every `git commit`):
 
-Install the hooks once after cloning:
+- **golangci-lint** — full lint suite across all Go packages
+- **markdownlint-cli2** — style checks on staged `.md` files
 
-```sh
-mise install                              # install all tools (go, golangci-lint, markdownlint-cli2, prek, …)
-prek install                              # register the pre-commit hook
-prek install --hook-type pre-push         # register the pre-push hook (coverage gate)
-```
+Pre-push (every `git push`):
 
-Pre-commit hooks run on every `git commit`:
+- **coverage** — runs the full test suite; fails if total coverage drops below 80%
 
-- **golangci-lint** — full lint suite on all Go packages (`./...`)
-- **markdownlint-cli2** — markdown style checks on staged `.md` files
-
-The pre-push hook runs on every `git push`:
-
-- **coverage** — runs the full test suite and fails if total coverage drops below 80%
-  (`go run ./scripts/check_coverage.go`; uses only Go, works on all platforms)
-
-Run all hooks manually at any time:
-
-```sh
-mise exec -- prek run --all-files
-```
+Linter config: `.golangci.yml` (errcheck, staticcheck, gosec, noctx, bodyclose, revive).
+Markdown config: `.markdownlint.json`.
