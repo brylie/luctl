@@ -1,0 +1,9 @@
+# compiled binary
+luctl
+
+# macOS
+.DS_Store
+
+# editor
+.idea/
+.vscode/
