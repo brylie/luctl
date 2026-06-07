@@ -10,6 +10,34 @@ The Luanti client ships a built-in Content browser, but it installs mods into th
 *client's* local directory — not a remote server. `luctl` manages packages, configuration,
 and backups directly on the server side.
 
+- [luctl](#luctl)
+  - [Features](#features)
+  - [Requirements](#requirements)
+  - [Install](#install)
+    - [Download a release binary](#download-a-release-binary)
+    - [Install with `go install`](#install-with-go-install)
+    - [Build from source](#build-from-source)
+    - [Cross-platform builds](#cross-platform-builds)
+  - [Quick start](#quick-start)
+  - [Command reference](#command-reference)
+    - [`luctl package` — package management](#luctl-package--package-management)
+    - [`luctl project` — manifest management](#luctl-project--manifest-management)
+    - [`luctl server` — backup and restore](#luctl-server--backup-and-restore)
+  - [Configuration](#configuration)
+    - [`luanti.toml` project manifest](#luantitoml-project-manifest)
+    - [`[backup]` section](#backup-section)
+  - [Server backups](#server-backups)
+    - [Credentials](#credentials)
+    - [Restoring a backup](#restoring-a-backup)
+    - [Scheduled backups — systemd timer](#scheduled-backups--systemd-timer)
+    - [Scheduled backups — cron](#scheduled-backups--cron)
+  - [Shell autocompletion](#shell-autocompletion)
+  - [Development](#development)
+    - [Setup](#setup)
+    - [Day-to-day commands](#day-to-day-commands)
+    - [Hooks](#hooks)
+
+
 ---
 
 ## Features
@@ -106,34 +134,34 @@ Run `luctl --help` for the full reference, or `luctl <command> --help` for any s
 
 ### `luctl package` — package management
 
-| Command | Description |
-| ------- | ----------- |
-| `luctl package search <query>` | Search ContentDB by keyword; accepts `--type` and `--limit` |
-| `luctl package info <author/name>` | Show metadata for a package |
+| Command                               | Description                                                          |
+| ------------------------------------- | -------------------------------------------------------------------- |
+| `luctl package search <query>`        | Search ContentDB by keyword; accepts `--type` and `--limit`          |
+| `luctl package info <author/name>`    | Show metadata for a package                                          |
 | `luctl package install <author/name>` | Download, extract, enable in `world.mt`, and append to `luanti.toml` |
-| `luctl package update <author/name>` | Re-download a package to its latest ContentDB release |
-| `luctl package list` | List all installed mod directories |
-| `luctl package enable <name>` | Set `load_mod_<name> = true` in `world.mt` |
-| `luctl package disable <name>` | Set `load_mod_<name> = false` in `world.mt` |
+| `luctl package update <author/name>`  | Re-download a package to its latest ContentDB release                |
+| `luctl package list`                  | List all installed mod directories                                   |
+| `luctl package enable <name>`         | Set `load_mod_<name> = true` in `world.mt`                           |
+| `luctl package disable <name>`        | Set `load_mod_<name> = false` in `world.mt`                          |
 
 ### `luctl project` — manifest management
 
-| Command | Description |
-| ------- | ----------- |
-| `luctl project init` | Scaffold `luanti.toml` with sensible defaults |
-| `luctl project install` | Install every package declared in `luanti.toml` |
-| `luctl project status` | Show which declared packages are installed or missing |
-| `luctl project sync` | Apply `[config]` values to `minetest.conf` in-place |
-| `luctl project fmt` | Sort and normalise the manifest (mod and game lists alphabetically) |
+| Command                 | Description                                                         |
+| ----------------------- | ------------------------------------------------------------------- |
+| `luctl project init`    | Scaffold `luanti.toml` with sensible defaults                       |
+| `luctl project install` | Install every package declared in `luanti.toml`                     |
+| `luctl project status`  | Show which declared packages are installed or missing               |
+| `luctl project sync`    | Apply `[config]` values to `minetest.conf` in-place                 |
+| `luctl project fmt`     | Sort and normalise the manifest (mod and game lists alphabetically) |
 
 ### `luctl server` — backup and restore
 
-| Command | Description |
-| ------- | ----------- |
-| `luctl server backup create` | Archive world dir + `minetest.conf` and upload to S3 |
-| `luctl server backup list` | List available backups with name, size, and modification date |
-| `luctl server restore [backup-name]` | Download and extract a backup; uses the most recent if omitted |
-| `luctl server restore --force [backup-name]` | Same, but skip the overwrite confirmation prompt |
+| Command                                      | Description                                                    |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| `luctl server backup create`                 | Archive world dir + `minetest.conf` and upload to S3           |
+| `luctl server backup list`                   | List available backups with name, size, and modification date  |
+| `luctl server restore [backup-name]`         | Download and extract a backup; uses the most recent if omitted |
+| `luctl server restore --force [backup-name]` | Same, but skip the overwrite confirmation prompt               |
 
 ---
 
