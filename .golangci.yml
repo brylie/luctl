@@ -1,0 +1,140 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    # --- Correctness / bugs ---
+    - govet # standard go vet checks
+    - staticcheck # comprehensive static analysis
+    - errcheck # unchecked errors
+    - ineffassign # assignments whose value is never used
+    - unused # unused constants, variables, functions, types
+    - copyloopvar # loop variable capture (pre-Go 1.22 footgun)
+    - forcetypeassert # panic-prone unchecked type assertions
+    - durationcheck # two durations multiplied together
+    - nilnil # simultaneous nil error + nil value return
+    - nilerr # returns nil when error is non-nil
+    - reassign # package-level variable reassignment
+
+    # --- Error handling ---
+    - errorlint # errors.Is/As wrapping correctness
+    - wrapcheck # external errors should be wrapped
+    - errname # sentinel errors prefixed Err, types suffixed Error
+
+    # --- HTTP / IO safety ---
+    - bodyclose # HTTP response body must be closed
+    - noctx # HTTP requests should use context
+
+    # --- Security ---
+    - gosec # OWASP-style security checks
+
+    # --- Code quality ---
+    - cyclop # cyclomatic complexity per function
+    - gocognit # cognitive complexity per function
+    - funlen # function length
+    - maintidx # maintainability index
+    - nestif # deeply nested if statements
+    - gocritic # broad collection of style/perf/correctness checks
+
+    # --- Style ---
+    - revive # fast, configurable drop-in for golint
+    - misspell # common English spelling mistakes
+    - godot # comments should end with a period
+    - lll # long lines
+    - whitespace # unnecessary blank lines in blocks
+    - nlreturn # blank line before return/branch for clarity
+    - unconvert # unnecessary type conversions
+
+    # --- Performance ---
+    - prealloc # slice declarations that could be pre-allocated
+    - perfsprint # fmt.Sprintf replaceable with faster alternatives
+
+    # --- Modernisation ---
+    - modernize # suggests modern Go idioms
+    - intrange # for loops that could use integer range
+    - exptostd # golang.org/x/exp functions replaceable by stdlib
+
+    # --- Miscellaneous ---
+    - gochecknoglobals # no package-level variables (keeps CLI state in commands)
+    - nosprintfhostport # misuse of Sprintf for host:port
+    - exhaustive # exhaustive enum switch statements
+    - wastedassign # wasted assignment statements
+    - dupword # duplicate words in comments/strings
+    - nolintlint # ill-formed nolint directives
+
+  settings:
+    cyclop:
+      max-complexity: 15
+
+    gocognit:
+      min-complexity: 15
+
+    funlen:
+      lines: 80
+      statements: 50
+
+    maintidx:
+      under: 20
+
+    lll:
+      line-length: 120
+
+    nestif:
+      min-complexity: 5
+
+    wrapcheck:
+      # Cobra errors are already printed/descriptive; our own internal packages
+      # wrap errors at the boundary — no need to double-wrap in cmd layer.
+      ignore-package-globs:
+        - github.com/spf13/cobra
+        - github.com/brylie/luctl/internal/*
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - commentedOutCode # we use commented examples sometimes
+
+    revive:
+      rules:
+        - name: exported
+        - name: unexported-return
+        - name: error-return
+        - name: error-strings
+        - name: var-naming
+        - name: indent-error-flow
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    nlreturn:
+      block-size: 3
+
+    godot:
+      scope: toplevel
+      period: true
+
+    gosec:
+      excludes:
+        - G304 # file path from variable — intentional after path-traversal check
+        - G306 # file permissions — 0o750 is intentional for server data dirs
+
+  exclusions:
+    rules:
+      # Command RunE closures are intentionally long (CLI output formatting).
+      - path: cmd/
+        linters: [funlen]
+        text: "Function.*RunE"
+      # Test files use // --- divider lines that are not doc comments.
+      - path: _test\.go
+        linters: [godot]
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

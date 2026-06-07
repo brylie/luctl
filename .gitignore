@@ -7,3 +7,7 @@ luctl
 # editor
 .idea/
 .vscode/
+
+# test coverage
+coverage.*
+coverage/
