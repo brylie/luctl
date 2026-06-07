@@ -267,6 +267,19 @@ luctl completion fish > ~/.config/fish/completions/luctl.fish
 
 ## Development
 
+### Setup
+
+Install [mise](https://mise.jdx.dev/getting-started.html), then run:
+
+```sh
+mise install   # installs Go, golangci-lint, markdownlint-cli2, prek, and other tools
+prek install   # registers the git pre-commit hook for this repo
+```
+
+That's it — all tools are pinned in `mise.toml` and installed locally to the project.
+
+### Day-to-day commands
+
 ```sh
 # Run without building
 go run . package search mobs
