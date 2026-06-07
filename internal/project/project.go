@@ -212,7 +212,8 @@ func SetModEnabled(worldDir, modName string, enabled bool) error {
 	found := false
 
 	for i, line := range lines {
-		if strings.HasPrefix(line, key) {
+		lhs, _, _ := strings.Cut(line, "=")
+		if strings.TrimSpace(lhs) == key {
 			lines[i] = newLine
 			found = true
 

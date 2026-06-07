@@ -410,6 +410,30 @@ func TestSetModEnabled_MissingWorldMT(t *testing.T) {
 	}
 }
 
+func TestSetModEnabled_NoPrefixCollision(t *testing.T) {
+	worldDir := t.TempDir()
+	worldMT := filepath.Join(worldDir, "world.mt")
+
+	// load_mod_mymod_extended must not be touched when enabling load_mod_mymod.
+	initial := "load_mod_mymod_extended = false\n"
+	if err := os.WriteFile(worldMT, []byte(initial), 0o600); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	if err := SetModEnabled(worldDir, "mymod", true); err != nil {
+		t.Fatalf("SetModEnabled: %v", err)
+	}
+
+	data, _ := os.ReadFile(worldMT)
+	content := string(data)
+	if !strings.Contains(content, "load_mod_mymod_extended = false") {
+		t.Errorf("load_mod_mymod_extended should be unchanged, got:\n%s", content)
+	}
+	if !strings.Contains(content, "load_mod_mymod = true") {
+		t.Errorf("load_mod_mymod should be appended, got:\n%s", content)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // SyncConfig
 // ---------------------------------------------------------------------------
