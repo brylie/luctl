@@ -34,3 +34,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refresh pkg.go.dev
+        run: GOPROXY=proxy.golang.org go list -m github.com/brylie/luctl@${{ github.ref_name }}
