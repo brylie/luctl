@@ -131,6 +131,9 @@ linters:
       - path: cmd/
         linters: [funlen]
         text: "Function.*RunE"
+      # Test files use // --- divider lines that are not doc comments.
+      - path: _test\.go
+        linters: [godot]
 
 issues:
   max-issues-per-linter: 0

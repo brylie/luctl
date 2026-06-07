@@ -17,7 +17,7 @@ import (
 
 // BaseURL is the root of the ContentDB REST API.  Declared as a var so that
 // tests can redirect requests to a local httptest.Server.
-var BaseURL = "https://content.luanti.org"
+var BaseURL = "https://content.luanti.org" //nolint:gochecknoglobals // var so tests can point at an httptest.Server
 
 const (
 	// maxDecompressedSize caps zip extraction to 500 MB to prevent decompression bombs.

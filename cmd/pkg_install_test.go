@@ -34,6 +34,7 @@ func buildCmdTestZip(t *testing.T, modName string) []byte {
 	if err := w.Close(); err != nil {
 		t.Fatalf("zip.Close: %v", err)
 	}
+
 	return buf.Bytes()
 }
 

@@ -41,6 +41,7 @@ func buildTestZip(t *testing.T, files map[string]string) []byte {
 	if err := w.Close(); err != nil {
 		t.Fatalf("zip.Close: %v", err)
 	}
+
 	return buf.Bytes()
 }
 

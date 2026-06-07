@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -555,7 +556,7 @@ func TestLoadCurrent_NotFound(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 
 	_, err := LoadCurrent()
-	if err != ErrNotFound {
+	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
